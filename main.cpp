@@ -26,7 +26,7 @@ bool binarySearch(const std::string& filename, const std::string& targetHash, st
                 std::cout << "Match found: " << hashInFile << " - " << foundValue << std::endl;
                 return true;
             } else if (hashInFile > targetHash) {
-                break;  // Остановка бинарного поиска, так как хеши отсортированы
+                break;  
             }
         }
     }
@@ -46,7 +46,7 @@ bool searchInTables(const std::vector<std::string>& tableFiles, const std::strin
 int main() {
     std::string targetHash;
     std::cout << "Enter MD5 hash: ";
-    std::cin >> targetHash;  // Обработка ввода с кавычками
+    std::cin >> targetHash;  
 
     std::string directoryPath = "./";
     std::vector<std::string> tableFiles;
