@@ -7,27 +7,49 @@
 
 namespace fs = std::filesystem;
 
-bool binarySearch(const std::string& filename, const std::string& targetHash, std::string& foundValue) {
-    std::ifstream file(filename);
-    if (!file.is_open()) {
-        std::cerr << "Failed to open the file: " << filename << std::endl;
-        return false;
-    }
+bool binarySearchInFile(std::ifstream& file, const std::string& targetHash, std::string& foundValue) {
+    std::streampos low = 0;
+    file.seekg(0, std::ios::end);
+    std::streampos high = file.tellg();
 
-    std::string line;
-    while (std::getline(file, line)) {
-        size_t pos = line.find('\t');
-        if (pos != std::string::npos) {
-            std::string hashInFile = line.substr(0, pos);
-            std::string value = line.substr(pos + 1);
+    while (low <= high) {
+        std::streampos mid = low + (high - low) / 2;
+        mid -= static_cast<std::streampos>(sizeof(char));  // Align to record boundary
+        file.seekg(mid);
 
-            if (hashInFile == targetHash) {
-                foundValue = value;
-                std::cout << "Match found: " << hashInFile << " - " << foundValue << std::endl;
-                return true;
-            } else if (hashInFile > targetHash) {
-                break;  
+        // Find the beginning of the current line
+        while (mid > low) {
+            char c;
+            file.seekg(mid);
+            file.get(c);
+            if (c == '\n') {
+                break;
             }
+            mid -= static_cast<std::streampos>(sizeof(char));
+        }
+
+        std::string line;
+        std::getline(file, line);
+
+        // Extract hash and name from the line
+        size_t tabPos = line.find('\t');
+        if (tabPos != std::string::npos) {
+            std::string hash = line.substr(0, tabPos); 
+            // Perform binary search
+            if (hash == targetHash) {
+                foundValue = line.substr(tabPos + 1);
+                std::cout << "Hash found! " << line << std::endl;
+                return true;
+            } else if (hash < targetHash) {
+                // The target hash is to the right
+                low = mid + static_cast<std::streampos>(sizeof(char));
+            } else {
+                // The target hash is to the left
+                high = mid - static_cast<std::streampos>(sizeof(char));
+            }
+        } else {
+            std::cerr << "Error: Invalid file format" << std::endl;
+            return false;
         }
     }
 
@@ -36,7 +58,8 @@ bool binarySearch(const std::string& filename, const std::string& targetHash, st
 
 bool searchInTables(const std::vector<std::string>& tableFiles, const std::string& targetHash, std::string& foundValue) {
     for (const auto& tableFile : tableFiles) {
-        if (binarySearch(tableFile, targetHash, foundValue)) {
+        std::ifstream file(tableFile);
+        if (file.is_open() && binarySearchInFile(file, targetHash, foundValue)) {
             return true;
         }
     }
@@ -46,7 +69,7 @@ bool searchInTables(const std::vector<std::string>& tableFiles, const std::strin
 int main() {
     std::string targetHash;
     std::cout << "Enter MD5 hash: ";
-    std::cin >> targetHash;  
+    std::cin >> targetHash;
 
     std::string directoryPath = "./";
     std::vector<std::string> tableFiles;
@@ -64,6 +87,8 @@ int main() {
     std::string foundValue;
     if (!searchInTables(tableFiles, targetHash, foundValue)) {
         std::cout << "Match not found: " << targetHash << std::endl;
+    } else {
+        std::cout << "Value in the line after the hash: " << foundValue << std::endl;
     }
 
     auto endTime = std::chrono::high_resolution_clock::now();
